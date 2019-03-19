@@ -7,6 +7,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "ass1ds.hpp"
 
 extern PriorityQueue pq;
 extern RoundRobinQueue rrq;
@@ -352,24 +353,35 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+    //for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      // if(p->state != RUNNABLE)
+      //   continue;
 
+    // enqueue from runnable queue
+    if(rrq.isEmpty())
+    {
+      release(&ptable.lock);
+      continue;
+    }
+    p = rrq.dequeue();
+    
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
+      rpholder.enqueue(p); // add to running queue
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
 
+      rpholder.dequeue(p); // remove from running queue
+
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
-    }
+    
     release(&ptable.lock);
 
   }

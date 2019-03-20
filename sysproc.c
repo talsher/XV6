@@ -28,7 +28,7 @@ int
 sys_wait(void)
 {
   char* pp;
-  if(argptr(0, &pp, sizeof(int*)) < 0)
+  if(argptr(0, &pp, sizeof(int)) < 0)
     return -1;
   return wait((int*)pp);
 }
@@ -106,4 +106,38 @@ sys_detach(void)
   if(argint(0, &pid) < 0)
     return -1;
   return detach(pid);
+}
+
+int
+sys_policy(void)
+{
+  int _policy;
+
+  if(argint(0, &_policy) < 0)
+    return -1;
+  policy(_policy);
+  return 0;
+}
+
+int
+sys_priority(void)
+{
+  int _priority;
+
+  if(argint(0, &_priority) < 0)
+    return -1;
+  priority(_priority);
+  return 0;
+}
+
+int
+sys_wait_stat(void)
+{
+  char* status;
+  char* performance;
+  if(argptr(0, &status, sizeof(int)) < 0)
+    return -1;
+  if(argptr(0, &performance, sizeof(struct perf)) < 0)
+    return -1;
+  return wait_stat((int*)status, (struct perf*)performance);
 }

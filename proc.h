@@ -34,6 +34,7 @@ struct context {
   uint eip;
 };
 
+
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
@@ -52,6 +53,10 @@ struct proc {
   struct inode *cwd;             // Current directory  
   char name[16];                 // Process name (debugging)
   int status;                    // Exit status
+  long long accumulator;         // Priority Queue acc
+  int priority;                  // Priority
+  long long RunCounter;          // count how many times this process runs
+  struct perf performance;       // precess preformence
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -59,3 +64,5 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+
+void updateTicks();

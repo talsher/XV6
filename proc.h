@@ -1,5 +1,3 @@
-#pragma once
-
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID
@@ -9,7 +7,8 @@ struct cpu {
   volatile uint started;       // Has the CPU started?
   int ncli;                    // Depth of pushcli nesting.
   int intena;                  // Were interrupts enabled before pushcli?
-  struct proc *proc;           // The process running on this cpu or null
+  //struct proc *proc;         // The process running on this cpu or null
+  struct thread *thread;       // The thread running on this cpu or null
 };
 
 extern struct cpu cpus[NCPU];
@@ -34,29 +33,39 @@ struct context {
   uint eip;
 };
 
-
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum threadstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING };
+
+// Assignment 2.1
+#define NTHREAD 16
+
+struct thread {
+  int tid;                     // Thread id
+  char *kstack;                // Bottom of kernel stack for this thread
+  enum threadstate state;      // Thread state
+  struct proc *mainProc;       // Parent process
+  struct trapframe *tf;        // Trap frame for current syscall
+  struct context *context;     // swtch() here to run thread
+  void *chan;                  // If non-zero, sleeping on chan
+  int killed;                  // If non-zero, have been killed
+};
 
 // Per-process state
 struct proc {
-  uint sz;                       // Size of process memory (bytes)
-  pde_t* pgdir;                  // Page table
-  char *kstack;                  // Bottom of kernel stack for this process
-  enum procstate volatile state; // Process state
-  int pid;                       // Process ID
-  struct proc *parent;           // Parent process
-  struct trapframe *tf;          // Trap frame for current syscall
-  struct context *context;       // swtch() here to run process
-  void *chan;                    // If non-zero, sleeping on chan
-  int killed;                    // If non-zero, have been killed
-  struct file *ofile[NOFILE];    // Open files
-  struct inode *cwd;             // Current directory  
-  char name[16];                 // Process name (debugging)
-  int status;                    // Exit status
-  long long accumulator;         // Priority Queue acc
-  int priority;                  // Priority
-  long long RunCounter;          // count how many times this process runs
-  struct perf performance;       // precess preformence
+  uint sz;                     // Size of process memory (bytes)
+  pde_t* pgdir;                // Page table
+  //char *kstack;                // Bottom of kernel stack for this process
+  enum procstate state;        // Process state
+  int pid;                     // Process ID
+  struct proc *parent;         // Parent process
+  //struct trapframe *tf;        // Trap frame for current syscall
+  //struct context *context;     // swtch() here to run process
+  //void *chan;                  // If non-zero, sleeping on chan
+  int killed;                  // If non-zero, have been killed
+  struct file *ofile[NOFILE];  // Open files
+  struct inode *cwd;           // Current directory
+  char name[16];               // Process name (debugging)
+  struct thread threads[NTHREAD];     // Process threads list
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -65,4 +74,3 @@ struct proc {
 //   fixed-size stack
 //   expandable heap
 
-void updateTicks();

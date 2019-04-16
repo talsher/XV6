@@ -53,34 +53,6 @@ int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
 
-
-// Assaignment1 task1
-void strcat(char* buffer,char* str1,char* str2){
-  char* tmp = buffer;
-  // clean buffer
-  while(*tmp != '\0'){
-    *tmp = '\0';
-    tmp++;
-  }
-  
-  // copy str1 to buffer
-  tmp = buffer;
-  while(*str1 != '\0'){
-    *tmp = *str1;
-    str1++;
-    tmp++;
-  }
-  // copy str2 to buffer
-  while(*str2 != '\0'){
-    *tmp = *str2;
-    str2++;
-    tmp++;
-  }
-}
-// Assaignment1 task1
-
-
-
 // Execute cmd.  Never returns.
 void
 runcmd(struct cmd *cmd)
@@ -92,15 +64,8 @@ runcmd(struct cmd *cmd)
   struct pipecmd *pcmd;
   struct redircmd *rcmd;
 
-  // Assignment1 task1
-  int pathFD, fd;
-  int readCount;
-  char buffer[1024];    // for read
-  char tmpBuffer[1024]; // for concat
-  char* currPath;
-
   if(cmd == 0)
-    exit(0);
+    exit();
 
   switch(cmd->type){
   default:
@@ -109,40 +74,8 @@ runcmd(struct cmd *cmd)
   case EXEC:
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
-      exit(0);
-
-    if((fd = open(ecmd->argv[0], O_RDONLY)) >= 0){
-          close(fd);
-          exec(ecmd->argv[0], ecmd->argv);
-    }
-    
-
-    // Assignment1 task1
-
-    if((pathFD = open("/path", O_RDONLY)) < 0){
-      printf(2, "exec %s failed\n", ecmd->argv[0]);
-      break;
-    }
-    if((readCount=read(pathFD, buffer, 1024)) < 0){
-      close(pathFD);
-      printf(2, "exec %s failed\n", ecmd->argv[0]);
-      break;
-    }
-
-    currPath = buffer;
-    for(int i = 0; i < readCount; i++){
-      if(buffer[i] == ':'){
-        buffer[i] = '\0';
-        strcat(tmpBuffer, currPath, ecmd->argv[0]);
-        if((fd = open(tmpBuffer, O_RDONLY)) >= 0){
-          close(fd);
-          exec(tmpBuffer, ecmd->argv);
-        }
-        currPath = buffer + i + 1;
-      }
-    }
-
-    close(fd);
+      exit();
+    exec(ecmd->argv[0], ecmd->argv);
     printf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
 
@@ -151,7 +84,7 @@ runcmd(struct cmd *cmd)
     close(rcmd->fd);
     if(open(rcmd->file, rcmd->mode) < 0){
       printf(2, "open %s failed\n", rcmd->file);
-      exit(0);
+      exit();
     }
     runcmd(rcmd->cmd);
     break;
@@ -160,7 +93,7 @@ runcmd(struct cmd *cmd)
     lcmd = (struct listcmd*)cmd;
     if(fork1() == 0)
       runcmd(lcmd->left);
-    wait(null);
+    wait();
     runcmd(lcmd->right);
     break;
 
@@ -184,8 +117,8 @@ runcmd(struct cmd *cmd)
     }
     close(p[0]);
     close(p[1]);
-    wait(null);
-    wait(null);
+    wait();
+    wait();
     break;
 
   case BACK:
@@ -194,7 +127,7 @@ runcmd(struct cmd *cmd)
       runcmd(bcmd->cmd);
     break;
   }
-  exit(0);
+  exit();
 }
 
 int
@@ -233,16 +166,16 @@ main(void)
     }
     if(fork1() == 0)
       runcmd(parsecmd(buf));
-    wait(null);
+    wait();
   }
-  exit(0);
+  exit();
 }
 
 void
 panic(char *s)
 {
   printf(2, "%s\n", s);
-  exit(0);
+  exit();
 }
 
 int

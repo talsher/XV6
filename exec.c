@@ -18,6 +18,7 @@ exec(char *path, char **argv)
   struct proghdr ph;
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
+  struct thread *curthread = mythread();
 
   begin_op();
 
@@ -93,14 +94,49 @@ exec(char *path, char **argv)
       last = s+1;
   safestrcpy(curproc->name, last, sizeof(curproc->name));
 
+
+  // Clean all threads
+  acquire_ptable();
+  for(struct thread* t = curproc->threads; t < &curproc->threads[NTHREAD]; t++){
+    if(t != curthread)
+      t->killed = 1;
+
+    if(t->state == SLEEPING){
+      t->state = RUNNABLE;
+    }
+  }
+  release_ptable();
+
+  for(struct thread* t = curproc->threads; t < &curproc->threads[NTHREAD]; t++){
+    if((t->state != T_UNUSED || t->state != T_ZOMBIE) && t != curthread){ 
+      t = curproc->threads;
+    }
+  }
+
+  acquire_ptable();
+  for(struct thread *t = curproc->threads;t < &curproc->threads[NPROC]; t++){
+    if(t->state == T_ZOMBIE && t != curthread){
+      kfree(t->kstack);
+      t->kstack = 0;
+      t->killed = 0;
+      t->state = T_UNUSED;
+      t->tid = 0;
+      t->mainProc = 0;
+    }
+  }
+  
+
+
   // Commit to the user image.
   oldpgdir = curproc->pgdir;
   curproc->pgdir = pgdir;
   curproc->sz = sz;
-  curproc->tf->eip = elf.entry;  // main
-  curproc->tf->esp = sp;
-  switchuvm(curproc);
+  curthread->tf->eip = elf.entry;  // main
+  curthread->tf->esp = sp;
+  switchuvm(mythread());
   freevm(oldpgdir);
+
+  release_ptable();
   return 0;
 
  bad:

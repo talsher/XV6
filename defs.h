@@ -4,6 +4,7 @@ struct file;
 struct inode;
 struct pipe;
 struct proc;
+struct thread;
 struct rtcdate;
 struct spinlock;
 struct sleeplock;
@@ -120,10 +121,9 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-struct thread*  mythread();
-void            release_ptable();
-void            acquire_ptable();
-void            exit_thread();
+struct thread*  mythread(void);
+void            exit_thread(void);
+
 // swtch.S
 void            swtch(struct context**, struct context*);
 
@@ -184,7 +184,7 @@ void            freevm(pde_t*);
 void            inituvm(pde_t*, char*, uint);
 int             loaduvm(pde_t*, char*, struct inode*, uint, uint);
 pde_t*          copyuvm(pde_t*, uint);
-void            switchuvm(struct thread*);
+void            switchuvm(struct proc* p, struct thread* t);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);

@@ -38,13 +38,14 @@ trap(struct trapframe *tf)
 {
   if(tf->trapno == T_SYSCALL){
     if(mythread()->killed)
-      exit_thread();
+      kill_single_thread();
     if(myproc()->killed)
       exit();
     mythread()->tf = tf;
+    //cprintf("calling syscall: %d\n", tf->eax);
     syscall();
     if(mythread()->killed)
-      exit_thread();
+      kill_single_thread();
     if(myproc()->killed)
       exit();
     return;
@@ -108,8 +109,10 @@ trap(struct trapframe *tf)
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
     mythread() && mythread()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
+     tf->trapno == T_IRQ0+IRQ_TIMER){
+       //cprintf("yield\n");
     yield();
+     }
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)

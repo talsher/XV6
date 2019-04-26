@@ -23,6 +23,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int kthread_create(void (*start_func)(), void* stack);
 
 // ulib.c
 int stat(const char*, struct stat*);

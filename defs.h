@@ -123,6 +123,7 @@ void            wakeup(void*);
 void            yield(void);
 struct thread*  mythread(void);
 void            exit_thread(void);
+int             kthread_create(void (*start_func)(), void* stack);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

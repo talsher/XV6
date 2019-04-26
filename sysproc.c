@@ -89,3 +89,14 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int
+sys_kthread_create(void)
+{
+  char* stack_pointer = 0;
+  char* func_pointer = 0;
+  if(argptr(0, &func_pointer, sizeof (void (*)())) < 0 || argptr(1, &stack_pointer, sizeof (void*)) < 0){
+    return -1;
+  }
+  return kthread_create((void (*)()) func_pointer, (void*) stack_pointer);
+}

@@ -42,7 +42,8 @@ trap(struct trapframe *tf)
     if(myproc()->killed)
       exit();
     mythread()->tf = tf;
-    //cprintf("calling syscall: %d\n", tf->eax);
+    //if(myproc()->pid==3)
+    //  cprintf("%d calling syscall: %d\n", mythread()->tid,tf->eax);
     syscall();
     if(mythread()->killed)
       kill_single_thread();

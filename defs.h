@@ -124,6 +124,13 @@ void            yield(void);
 struct thread*  mythread(void);
 void            exit_thread(void);
 int             kthread_create(void (*start_func)(), void* stack);
+void            kthread_exit(void);
+int             kthread_join(int thread_id);
+int             kthread_id();
+int             kthread_mutex_alloc();
+int             kthread_mutex_dealloc(int mutex_id);
+int             kthread_mutex_lock(int mutex_id);
+int             kthread_mutex_unlock(int mutex_id);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

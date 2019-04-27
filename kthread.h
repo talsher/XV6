@@ -1,3 +1,4 @@
+
 #define MAX_STACK_SIZE 4000
 #define MAX_MUTEXES 64
 
@@ -9,6 +10,9 @@ int kthread_create(void (*start_func)(), void* stack);
 int kthread_id();
 void kthread_exit();
 int kthread_join(int thread_id);
+
+enum mutex_state {M_UNUSED, M_UNLOCK, M_LOCK};
+struct kthread_mutex_t;
 
 int kthread_mutex_alloc();
 int kthread_mutex_dealloc(int mutex_id);

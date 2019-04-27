@@ -67,7 +67,7 @@ sys_sleep(void)
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    if(myproc()->killed){
+    if(myproc()->killed || mythread()->killed){
       release(&tickslock);
       return -1;
     }
@@ -99,4 +99,62 @@ sys_kthread_create(void)
     return -1;
   }
   return kthread_create((void (*)()) func_pointer, (void*) stack_pointer);
+}
+
+int
+sys_kthread_exit(void)
+{
+  kthread_exit();
+  return 0;
+}
+
+int
+sys_kthread_id(void)
+{
+  return kthread_id();
+}
+
+int sys_kthread_join(void)
+{
+  int thread_id;
+
+  if(argint(0, &thread_id) < 0)
+    return -1;
+
+  return kthread_join(thread_id);
+}
+
+int sys_kthread_mutex_alloc(void)
+{
+  return kthread_mutex_alloc();
+}
+
+int sys_kthread_mutex_dealloc(void)
+{
+  int mutex_num = 0;
+  
+  if(argint(0, &mutex_num) < 0)
+    return -1;
+
+  return kthread_mutex_dealloc(mutex_num);
+}
+
+int sys_kthread_mutex_lock(void)
+{
+  int mutex_num = 0;
+  
+  if(argint(0, &mutex_num) < 0)
+    return -1;
+
+  return kthread_mutex_lock(mutex_num);
+}
+
+int sys_kthread_mutex_unlock(void)
+{
+  int mutex_num = 0;
+  
+  if(argint(0, &mutex_num) < 0)
+    return -1;
+
+  return kthread_mutex_unlock(mutex_num);
 }

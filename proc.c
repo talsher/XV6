@@ -13,6 +13,15 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+struct kthread_mutex_t{
+        struct spinlock lock;
+        struct thread* lock_owner;
+        enum mutex_state state;
+};
+
+struct spinlock mutexes_lock;
+struct kthread_mutex_t mutexes[MAX_MUTEXES];
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -25,6 +34,7 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+  initlock(&mutexes_lock, "mutex lock");
 }
 
 // Must be called with interrupts disabled
@@ -562,6 +572,7 @@ sleep(void *chan, struct spinlock *lk)
 
   // Tidy up.
   p->chan = 0;
+  t->chan = 0;
 
   // Reacquire original lock.
   if(lk != &ptable.lock){  //DOC: sleeplock2
@@ -582,7 +593,6 @@ wakeup1(void *chan)
     for(struct thread* t = p->threads ; t<&(p->threads[NTHREAD]); t++)
       if(t->state == SLEEPING && t->chan == chan){
         t->state = RUNNABLE;
-        //cprintf("wakeup!\n");
       }
 }
 
@@ -594,6 +604,9 @@ wakeup(void *chan)
   wakeup1(chan);
   release(&ptable.lock);
 }
+          
+
+
 
 // Kill the process with the given pid.
 // Process won't exit until it returns
@@ -670,19 +683,25 @@ kthread_create(void (*start_func)(), void* stack)
 {
   struct proc* p = myproc();
   struct thread* newthread;
+  struct thread* curthread=mythread();
   char* st;
 
   acquire(&ptable.lock);
   int i=0;
   for(newthread=p->threads;newthread<&p->threads[NTHREAD];newthread++ ){
-    if(newthread->state == UNUSED)
+    if(newthread->state == UNUSED || newthread->state == ZOMBIE)
     {
+      if(newthread->state == ZOMBIE){
+          kfree(newthread->kstack);
+          newthread->kstack = 0;
+      }
+
       newthread->parent = p;
       newthread->killed = 0;
       newthread->chan = 0;
       newthread->state = EMBRYO;
       newthread->tid = p->pid * 100 + i;
-      release(&ptable.lock);
+      //release(&ptable.lock);
       
       // Allocate kernel stack.
       if((newthread->kstack = kalloc()) == 0){
@@ -697,10 +716,11 @@ kthread_create(void (*start_func)(), void* stack)
       newthread->tf = (struct trapframe*)st;
       
       // copy TrapFrame
-      *newthread->tf = *mythread()->tf;
+      *newthread->tf = *curthread->tf;
       newthread->tf->esp = (uint)stack;
       newthread->tf->ebp = (uint)stack;
       newthread->tf->eip = (uint)start_func;
+      newthread->tf->eax = 0;
 
       // Set up new context to start executing at forkret,
       // which returns to trapret.
@@ -712,7 +732,7 @@ kthread_create(void (*start_func)(), void* stack)
       memset(newthread->context, 0, sizeof *newthread->context);
       newthread->context->eip = (uint)forkret;
 
-      acquire(&ptable.lock);
+      //acquire(&ptable.lock);
       newthread->state = RUNNABLE;
       update_proc_state(p);
       release(&ptable.lock);
@@ -724,6 +744,160 @@ kthread_create(void (*start_func)(), void* stack)
   release(&ptable.lock);
   return -1;
 }
-int kthread_id();
-void kthread_exit();
-int kthread_join(int thread_id);
+
+int kthread_id()
+{
+  return mythread()->tid;
+}
+
+void kthread_exit()
+{
+  struct thread* curthread = mythread();
+  struct proc* curproc = myproc();
+  //cprintf("kthread_exit: %d\n", curthread->tid);
+  acquire(&ptable.lock);
+  int i=0;
+  for(struct thread* t = curproc->threads ; t < &(curproc->threads[NTHREAD]); t++){
+    // im not the only one running, so just kill myself
+    if(t->state != ZOMBIE && t->state != UNUSED && t->killed != 1 && t != curthread){
+      //cprintf("killing: %d\n", curthread->tid);
+      curthread->killed = 1;
+      release(&ptable.lock);
+      return;
+    }
+    i++;
+  }
+  release(&ptable.lock);
+  exit();
+}
+
+int kthread_join(int thread_id)
+{
+  struct proc* curproc = myproc();
+  //cprintf("kthread_join: %d waiting for %d\n", mythread()->tid, thread_id);
+  acquire(&ptable.lock);
+  for(struct thread* t = curproc->threads ; t < &(curproc->threads[NTHREAD]); t++)
+  {
+    if(t->tid == thread_id){
+      // if already zombie dont wait
+      if(t->state == ZOMBIE){
+        release(&ptable.lock);
+        return 0;
+      }
+      // error thread doesnt exist
+      if(t->state == UNUSED){
+        release(&ptable.lock);
+        return -1;
+      }
+      
+      //sleep on thread until he exits
+      sleep(t, &ptable.lock);
+      //cprintf("%d is done, wakeup!", thread_id);
+      release(&ptable.lock);
+      return 0;
+    }
+  }
+  // not found
+  release(&ptable.lock);
+  return -1;
+}
+
+
+
+int kthread_mutex_alloc()
+{
+  acquire(&mutexes_lock);
+  int mutex_num = 0;
+
+  for(struct kthread_mutex_t* mutex = mutexes ; mutex < &mutexes[MAX_MUTEXES]; mutex++){
+    if(mutex->state == M_UNUSED)
+    {
+      mutex->lock_owner = 0;
+      mutex->state = M_UNLOCK;
+      release(&mutexes_lock);
+      return mutex_num;
+    }
+    mutex_num++;
+  }
+  release(&mutexes_lock);
+  return -1;
+}
+
+
+int kthread_mutex_dealloc(int mutex_id)
+{
+  struct kthread_mutex_t *mutex = &mutexes[mutex_id];
+  
+  // cant dealloc locked mutex
+  if(mutex->state == M_LOCK)
+    return -1;
+
+  acquire(&mutexes_lock);
+  mutex->state = M_UNUSED;
+  mutex->lock_owner = 0;
+  release(&mutexes_lock);
+  return 0;
+}
+
+int kthread_mutex_lock(int mutex_id)
+{
+  struct kthread_mutex_t* mutex = &mutexes[mutex_id];
+  while(1) //keep trying taking the lock
+  {
+    acquire(&mutexes_lock);
+
+    if(mutex->state == M_UNUSED){
+      release(&mutexes_lock);
+      return -1;
+    }else if(mutex->state == M_LOCK)
+    {
+      if(mutex->lock_owner == mythread()){
+        release(&mutexes_lock);
+        return -1;
+      } else {
+        sleep(mutex, &mutexes_lock);
+        release(&mutexes_lock);
+      }
+    } else if(mutex->state == M_UNLOCK){
+      mutex->state = M_LOCK;
+      mutex->lock_owner = mythread();
+//      acquire(&mutex->lock);
+      release(&mutexes_lock);
+      return 0;
+    }
+  }
+
+}
+
+
+//This function unlocks the mutex specified by the argument mutex id if called by the owning thread,
+//upon unlocking a mutex one of the threads which are waiting for it will wake up and acquire it, we leave the
+//waking up order to you, can be in any way you prefer
+int kthread_mutex_unlock(int mutex_id)
+{
+  struct kthread_mutex_t *mutex = &mutexes[mutex_id];
+
+  acquire(&mutexes_lock);
+
+  if(mutex->state == M_UNUSED || mutex->state == M_UNLOCK){
+    release(&mutexes_lock);
+    return -1;
+  }
+
+  if(mutex->state == M_LOCK)
+  {
+    if(mutex->lock_owner != mythread()){
+      release(&mutexes_lock);
+      return -1;
+    } else {
+      mutex->state=M_UNLOCK;
+      mutex->lock_owner = 0 ;
+      release(&mutexes_lock);
+      wakeup(mutex);
+      return 0;
+    }
+  }
+
+  //unreachable
+  return -1;
+}

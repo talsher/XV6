@@ -77,3 +77,4 @@ struct proc {
 struct thread* mythread(void);
 void exit_thread(void);
 void kill_single_thread(void);
+void exit_threads(void);

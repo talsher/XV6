@@ -14,7 +14,9 @@ struct trnmnt_node {
     int id_owner;
 };
 
-trnmnt_tree* trnmnt_tree_alloc(int depth);
-int trnmnt_tree_dealloc(trnmnt_tree* tree);
-int trnmnt_tree_acquire(trnmnt_tree* tree,int ID);
-int trnmnt_tree_release(trnmnt_tree* tree,int ID);
+#define MAX_DEPTH 6
+
+struct trnmnt_tree* trnmnt_tree_alloc(int depth);
+int trnmnt_tree_dealloc(struct trnmnt_tree* tree);
+int trnmnt_tree_acquire(struct trnmnt_tree* tree,int ID);
+int trnmnt_tree_release(struct trnmnt_tree* tree,int ID);
